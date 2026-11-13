@@ -1,0 +1,8 @@
+// This MVP reads YouTube captions already visible in the page; it does not bypass DRM.
+// Translation uses a small phrase dictionary, NOT a remote AI translation service.
+const phrases={'hello':'Pẹ̀lẹ́','thank you':'Ẹ ṣé','good morning':'Ẹ káàárọ̀','water':'Omi','food':'Oúnjẹ','how are you':'Báwo ni?','yes':'Bẹ́ẹ̀ ni','no':'Rárá'};
+let last='',captionEnabled=true,dubEnabled=false;const overlay=document.createElement('div');overlay.id='ya-overlay';overlay.textContent='Yoruba Immersion ready · Enable YouTube captions (CC)';document.documentElement.appendChild(overlay);
+chrome.storage.local.get(['yaCaptions','yaDub'],v=>{captionEnabled=v.yaCaptions!==false;dubEnabled=!!v.yaDub;overlay.style.display=captionEnabled?'block':'none'});
+chrome.runtime.onMessage.addListener(msg=>{if(msg.type==='settings'){captionEnabled=msg.captions;dubEnabled=msg.dub;overlay.style.display=captionEnabled?'block':'none'}});
+function loop(){const el=document.querySelector('.ytp-caption-segment');if(!el)return;const text=[...document.querySelectorAll('.ytp-caption-segment')].map(x=>x.textContent).join(' ').trim();if(!text||text===last)return;last=text;let translated=phrases[text.toLowerCase().replace(/[.!?]/g,'')];if(captionEnabled){overlay.textContent=translated?`EN: ${text}\nYO: ${translated}`:`EN: ${text}\nYO: Translation unavailable in starter dictionary`;}if(dubEnabled&&translated){const voice=speechSynthesis.getVoices().find(v=>v.lang.toLowerCase().startsWith('yo'));if(voice){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(translated);u.voice=voice;u.lang=voice.lang;speechSynthesis.speak(u)}}}
+setInterval(loop,650);

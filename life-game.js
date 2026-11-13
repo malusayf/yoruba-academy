@@ -22,7 +22,7 @@ const events=[
 {min:60,max:120,story:'O fẹ́ lo àkókò rẹ lọ́nà tó dára.',choices:[['Mo máa bá ìdílé mi sọ̀rọ̀.',{family:12,joy:6}],['Mo máa ṣe eré ìdárayá.',{health:10,joy:5}],['Mo máa ka ìwé.',{school:5,joy:4}]]}
 ];
 let state=null;
-function fresh(name){return {name:name||random(names),age:0,health:85,joy:80,school:30,family:80,friends:40,reputation:50,cash:0,job:null,business:false,partner:false,children:0,history:[],pending:null,alive:true,year:0};}
+function fresh(name){return {name:name||random(names),age:0,health:85,joy:80,school:30,family:80,friends:40,reputation:50,cash:0,job:null,business:false,partner:false,children:0,history:[],pending:null,alive:true,year:0,schoolYearDone:false,schoolPhase:'lesson',examAttempts:0,examResults:[],npcDone:false,helpEnglish:true};}
 function load(){try{const v=JSON.parse(localStorage.getItem(KEY));return v&&typeof v.name==='string'&&Number.isFinite(v.age)?v:null}catch{return null}}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{}}
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
@@ -32,6 +32,8 @@ function apply(delta){for(const [k,v] of Object.entries(delta)){if(k==='cash')st
 function choose(i){if(!state.pending||!state.alive)return;const c=state.pending.choices[i];apply(c[1]);if(c[2]==='business'){state.business=true;addLog('O bẹ̀rẹ̀ òwò kékeré.')}addLog(c[0]);state.pending=null;persist();render()}
 function nextYear(){
  if(!state||!state.alive||state.pending)return;
+ if(state.age>=6&&state.age<=17&&(!state.schoolYearDone||!state.npcDone)){alert('Parí ẹ̀kọ́, ìdánwò àti ìjíròrò kí o tó dàgbà.');return}
+ state.schoolYearDone=false;state.npcDone=false;state.schoolPhase='lesson';
  state.age++;state.year++;
  if(state.age>=6&&state.age<=18)apply({school:2,joy:-1});
  if(state.age>=18){if(state.job){const j=jobs.find(j=>j.name===state.job);state.cash+=(j?.pay||20000)*12;addLog('O gba owó iṣẹ́: '+money((j?.pay||20000)*12)+'.')}if(state.business){const profit=Math.round((Math.random()*.9+.3)*50000);state.cash+=profit;addLog('Òwò rẹ mú '+money(profit)+' wá.')}state.cash=Math.max(0,state.cash-18000);apply({health:-2})}
@@ -74,7 +76,9 @@ function render(){
  const head=el('div',undefined,'life-head');head.append(el('div','👤','life-avatar'));const info=el('div');info.append(el('h2',state.name),el('p','Ọjọ́-orí: '+state.age+' ọdún'),el('p','Owó: '+money(state.cash)));head.append(info);root.append(head);
  const stats=el('div',undefined,'life-stats');[['Ìlera',state.health],['Ayọ̀',state.joy],['Ẹ̀kọ́',state.school],['Ìdílé',state.family],['Ọ̀rẹ́',state.friends],['Òkìkí',state.reputation]].forEach(s=>stats.append(stat(...s)));root.append(stats);
  const detail=el('p','Iṣẹ́: '+(state.job||'Kò sí')+' · Ìbáṣepọ̀: '+(state.partner?'Bẹ́ẹ̀ ni':'Rárá')+' · Ọmọ: '+state.children,'muted');root.append(detail);
+ if(state.age>=6&&state.age<=17&&state.alive){renderSchool(root)}
  if(!state.alive){const end=el('div',undefined,'life-event');end.append(el('h3','🕊️ Ìparí ìrìnàjò'),el('p','O gbé ayé fún ọdún '+state.age+'.'),btn('Bẹ̀rẹ̀ ayé tuntun',restart,'life-primary'));root.append(end)}
+ else if(state.age>=6&&state.age<=17&&(!state.schoolYearDone||!state.npcDone)){const msg=el('p',state.schoolYearDone?'🏘️ Lẹ́yìn ilé ẹ̀kọ́: bá ènìyàn sọ̀rọ̀ kí o tó dàgbà.':'🏫 Lọ sí ilé ẹ̀kọ́, kọ́ ẹ̀kọ́, kí o sì ṣe ìdánwò.','muted');root.append(msg)}
  else if(state.pending){const event=el('div',undefined,'life-event');event.append(el('h3','📖 Kí ni o máa ṣe?'),el('p',state.pending.story));state.pending.choices.forEach((c,i)=>event.append(btn(c[0],()=>choose(i),'life-choice')));root.append(event)}
  else{
  const actions=el('div',undefined,'life-actions');actions.append(btn('🎂 Ọdún tó kàn',nextYear,'life-primary'));const menu=el('div',undefined,'life-grid');
@@ -87,6 +91,50 @@ function render(){
  }
  const hist=el('div',undefined,'life-history');hist.append(el('h3','📜 Ìtàn ayé rẹ'));state.history.forEach(t=>hist.append(el('p',t)));root.append(hist);
  root.append(btn('🔄 Bẹ̀rẹ̀ ayé tuntun',restart,'secondary'));
+}
+
+function renderSchool(root){
+ const unit=window.YorubaLifeSchool.unit(state.age);
+ const block=el('div',undefined,'life-event');
+ block.append(el('h3','🏫 Ilé Ẹ̀kọ́ Yorùbá · Kíláàsì '+(state.age-5)),el('p','Ẹ̀kọ́: '+unit.topic));
+ if(!state.schoolYearDone){
+  const help=btn(state.helpEnglish?'🌐 Ìtúmọ̀ Gẹ̀ẹ́sì: Ṣí':'🌐 Ìtúmọ̀ Gẹ̀ẹ́sì: Pa',()=>{state.helpEnglish=!state.helpEnglish;persist();render()});
+  block.append(help);
+  if(state.schoolPhase==='lesson'){
+   block.append(el('p','Olùkọ́: Ẹ tẹ́tí sílẹ̀, ẹ tún ọ̀rọ̀ náà sọ.')); 
+   unit.teach.forEach(([yo,en])=>{
+    const row=el('div',undefined,'life-school-row');
+    row.append(el('strong',yo));
+    if(state.helpEnglish)row.append(el('span',' — '+en,'muted'));
+    row.append(btn('🔊 Gbọ́',()=>speak(yo)));
+    block.append(row)
+   });
+   block.append(btn('📝 Bẹ̀rẹ̀ ìdánwò',()=>{state.schoolPhase='exam';persist();render()},'life-primary'));
+  }else{
+   block.append(el('h4','📝 Ìdánwò · '+unit.topic),el('p',unit.q));
+   const answer=el('div',undefined,'life-grid');
+   unit.options.forEach((opt,i)=>answer.append(btn(opt,()=>{
+    state.examAttempts=(state.examAttempts||0)+1;
+    if(i===unit.correct){state.schoolYearDone=true;state.schoolPhase='lesson';state.examResults.push({age:state.age,passed:true,attempts:state.examAttempts});state.examAttempts=0;apply({school:5,joy:3});addLog('O yege nínú ìdánwò Yorùbá: '+unit.topic+'.')}
+    else{apply({school:-2,joy:-1});addLog('Ìdáhùn kò tọ́. O ní láti tún ẹ̀kọ́ ṣe.');state.schoolPhase='review'}
+    persist();render()
+   })));
+   if(state.schoolPhase==='review'){block.append(el('p','❌ Kò tọ́. Tún ẹ̀kọ́ náà ṣe, kí o sì gbìyànjú lẹ́ẹ̀kan sí i.','bad'));block.append(btn('📖 Padà sí ẹ̀kọ́',()=>{state.schoolPhase='lesson';persist();render()}))}
+   else block.append(answer);
+  }
+ }else{
+  block.append(el('p','✅ O yege nínú ìdánwò!'));
+  if(!state.npcDone){
+   const scene=window.YorubaLifeSchool.scene(state.age);
+   block.append(el('h3','🏘️ Lẹ́yìn ilé ẹ̀kọ́ · '+scene.where),el('p',scene.who+': '+scene.say));
+   block.append(btn('🔊 Gbọ́ ohun tí wọ́n sọ',()=>speak(scene.say)));
+   if(state.helpEnglish)block.append(el('p',scene.english,'muted'));
+   scene.choices.forEach(([yo,en,delta])=>block.append(btn(yo+(state.helpEnglish?' — '+en:''),()=>{
+    apply(delta);state.npcDone=true;addLog(scene.who+': '+scene.say+' | '+yo);persist();render()
+   },'life-choice')));
+  }else block.append(el('p','✅ O ti bá ènìyàn sọ̀rọ̀. O lè tẹ̀síwájú sí ọdún tó kàn.'));
+ }
+ root.append(block);
 }
 function restart(){if(!confirm('Ṣé o fẹ́ pa ìtàn yìí rẹ́ kí o sì bẹ̀rẹ̀ tuntun?'))return;state=null;localStorage.removeItem(KEY);render()}
 window.lifeGameInit=()=>{if(!state)state=load();render()};
